@@ -1,0 +1,157 @@
+---
+title: "Analysis of quality of wine"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+urlcolor: blue
+---
+
+
+                            
+  The dataset employed in this project pertains to red wine quality. It encompasses 12 variables and comprises a total of 1599 observations. Within this dataset, these variables represent potential factors that could impact the quality of the wine. The primary objective of this analysis is to identify the variable or variables that exert the most significant influence on wine quality. Additionally, we aim to predict the quality of the wine itself. This particular dataset was selected due to its similarity to the data we previously examined. 
+
+
+## Exploring basic data statistics
+```{r,echo=FALSE,warning=FALSE}
+library(ISLR)
+data("Weekly")
+library(MASS)
+winedata <- 
+  read.csv("https://raw.githubusercontent.com/yamunadhungana/data/master/winequality-red.csv", header = TRUE)
+
+ str(winedata)
+ summary(winedata)
+```
+    
+Originally, the wine quality was assessed on a scale ranging from 1 to 10. However, I have redefined the wine quality, classifying ratings less than or equal to 5 as "low," indicated as Zero (0) in the dataset, and ratings greater than 5 as "high," designated as One (1) in the data. 
+
+
+```{r,echo=FALSE,warning=FALSE} 
+# Changing the quality of the wine as high and low. The quality of wine scoring 4 or less is considered as the low quality wine and quality scoring 5 or above is considered as the high quality wine 
+
+qty <- rep(NA,dim(winedata)[1])
+qty = ifelse(winedata$quality<= 5,0,1)
+data_wine = as.data.frame(cbind(winedata, qty))
+fdata_wine <- data_wine[,-12]
+
+```
+
+    
+  Now, I want to find which variable is mostly correlated with the wine data. 
+
+
+```{r,echo=FALSE,warning=FALSE}
+library(tidyverse)
+library(GGally)
+
+# corelation of the data
+rr <- cor(fdata_wine)
+rr
+
+aa <- sort(rr[12,], decreasing = TRUE)
+abs(aa)>0.3
+ggpairs(fdata_wine)
+
+
+```
+    
+  I've chosen to identify variables with a correlation coefficient exceeding 0.3. Based on the correlation analysis, it appears that volatile acidity and alcohol exhibit the strongest correlations with wine quality. Alcohol demonstrates a positive correlation, while volatile acidity displays a negative correlation coefficient.
+
+
+## Splitting data 
+```{r,echo=FALSE,warning=FALSE}
+# SPlitting the data into training and testing
+
+library(caTools)
+sample.split(fdata_wine,SplitRatio = 0.60)-> splitdata
+subset(fdata_wine,splitdata==T)->tr.data
+subset(fdata_wine,splitdata==F)->tt.data
+
+```
+    
+ I partitioned the data into training and testing sets using a 60% to 40% ratio, facilitated by the caTools library function. The objective is to evaluate the influence of variables on wine quality by applying three different models. The first model in line is logistic regression.
+
+
+## With Logistic Regression
+```{r,echo=FALSE,warning=FALSE}
+# Preform logistic regression to see whic of the variable is mostly associated with the quality of wine
+
+model1 <- glm(qty ~ volatile.acidity  + alcohol, data = tr.data, family = binomial)
+summary(model1)
+
+
+
+test.err=function(cutoff,model,tt){
+  preds=rep(0,dim(tt)[1])
+  probs=predict(model,newdata=tt, type="response")
+  for(i in 1:length(probs)){
+    if(probs[i]>=cutoff){
+      preds[i]=1
+    }
+  }
+  cm=table(preds, tt$qty)
+  message("Confusion Matrix:");print(cm)
+  ac=((cm[1,1]+cm[2,2])/sum(cm))*100
+  message("Overall test accuracy (percentage) : ", round(ac,2))
+  paste0("Test error (percantage): ",round((100-ac),2))
+  print("True Positive Rate, TPR (percentage):")
+  print(round(cm[2,2]/(cm[2,2]+cm[1,2])*100,2))
+  print("False Postive Rate, FPR (percentage):")
+  spec=cm[1,1]/(cm[1,1]+cm[2,1])*100
+  print(round((100-spec),2))
+  
+}
+
+test.err(0.5,model1, tt.data)
+
+```
+    
+ As volatile acidity and alcohol exhibit strong associations with wine quality, I employed a logistic model focusing on these variables. The results from the logistic model indicate that both volatile acidity and alcohol are statistically significant. The estimated coefficient for volatile acidity is -3.02073, signifying that when other predictors in the model remain constant, we can expect a mean decrease in log-odds with a unit increase in wine quality. Similarly, the estimated coefficient for alcohol is 1.10115, suggesting that, under constant conditions for the other predictors, a unit increase in wine quality leads to a mean increase in log-odds.
+
+In the confusion matrix of the logistic regression, the model achieved a test accuracy of 72.11%. The true positive rate stood at 70.9%, and the false positive rate was 26.52%, which is considered favorable.
+
+## With LDA
+```{r,echo=FALSE,warning=FALSE}
+# preforming LDA for the same question
+f_lda = lda(qty ~ volatile.acidity + alcohol, data = tr.data)
+
+
+do.confusion2 =function(model,data){
+  preds=(predict(model,newdata=data,type="response"))$class
+  vals=predict(model,newdata=data,type="response")
+  print("Confusion Matrix:")
+  con=table(preds,data$qty)
+  print(con)
+  print("Model Accuracy (Percentage):")
+  print(round(sum(preds==data$qty)/dim(data)[1]*100,2))
+  print("True Positive Rate, TPR (percentage):")
+  print(round(con[2,2]/(con[2,2]+con[1,2])*100,2))
+  print("False Postive Rate, FPR (percentage):")
+  spec=con[1,1]/(con[1,1]+con[2,1])*100
+  print(round((100-spec),2))
+  
+}
+
+
+paste0("Statistics for the LDA")
+do.confusion2(f_lda,tt.data)
+```
+    
+  The LDA model reveals that both logistic regression and LDA produce comparable outcomes. The accuracy, true positive rate, and false positive rate in the LDA model are nearly identical to those in the logistic regression model.
+    
+
+## With QDA
+```{r,echo=FALSE,warning=FALSE}
+# QDA for my data
+
+f_qda <- qda(qty ~ volatile.acidity + alcohol, data = tr.data)
+
+paste0("Statistics for the QDA")
+do.confusion2(f_qda,tt.data)
+
+
+```
+    
+In the QDA model, the accuracy stands at 71.06%, which is slightly lower than the other models. The true positive rate is 65.54%, also lagging behind the other models. However, it's noteworthy that the false positive rate is 22.68%, which is 5% and 2% lower than the other models, indicating a more favorable performance in this aspect.
+
+

@@ -1,0 +1,486 @@
+---
+title: "Comparision between LDA,QDA and KNN"
+author: "Yamuna Dhungana"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F,warning=F,message=F)
+```
+
+This is the continuation of QDA now using LDA.
+
+```{r,echo=FALSE,warning=FALSE}
+library(ISLR)
+data("Weekly")
+library(MASS)
+
+
+# Subsetting data into test and train data
+my_data <- c(which(Weekly$Year==2009), which(Weekly$Year==2010))
+test_data <- Weekly[my_data,]
+train <- Weekly[-my_data,]
+
+
+# Fitting LDA with train data
+fit_lda = lda(Direction ~ Lag2, data = train)
+
+
+# For confusion matrix 
+# I will be using same function for both LDA and QDA models 
+do.confusion =function(model,data){
+  preds=(predict(model,newdata=data,type="response"))$class
+  vals=predict(model,newdata=data,type="response")
+  print("Confusion Matrix:")
+  con=table(preds,data$Direction)
+  print(con)
+  print("Model Accuracy (Percentage):")
+  print(round(sum(preds==data$Direction)/dim(data)[1]*100,2))
+  print("True Positive Rate, TPR (percentage):")
+  print(round(con[2,2]/(con[2,2]+con[1,2])*100,2))
+  print("False Postive Rate, FPR (percentage):")
+  spec=con[1,1]/(con[1,1]+con[2,1])*100
+  print(round((100-spec),2))
+  
+}
+
+paste0("Statistics for the LDA")
+do.confusion(fit_lda,test_data)
+
+
+# ANother method 
+# library(caret)
+# pre <- predict(fit_lda,newdata=test_data,type="response")
+# co.fu <- confusionMatrix(pre$class, reference = test_data$Direction)
+# co.fu
+
+
+```
+    
+ 
+In this instance, a threshold of 0.5 has also been employed. The model exhibits an accuracy of 62.5%, implying a test error of 37.5% for the LDA model. When analyzing the confusion table, it becomes apparent that 9 instances of "down" data were accurately predicted, and 56 instances of "up" data were correctly predicted. Furthermore, it can be deduced that the model's predictions are accurate 91.8% of the time when the market is on an upward trend (56/(56+5)), while its accuracy in predicting a downward market is 20.9% (9/(9+34)). The false-positive rate for the model is 79.07%.
+And now repeating with QDA.
+
+
+```{r,echo=FALSE,warning=FALSE}
+
+# fitting qda for the model
+fit_qda <- qda(Direction~Lag2,data=train)
+
+
+paste0("Statistics for the QDA")
+do.confusion(fit_qda,test_data)
+
+
+# ANother method
+# pre2 <- predict(fit_qda,newdata=test_data,type="response")
+# co.fu2 <- confusionMatrix(tt$class, reference = test_data$Direction)
+# co.fu2
+
+```
+    
+In the case of the QDA model, I maintained a threshold of 0.5, consistent with the logistic and LDA models. However, in contrast to those models, the QDA model exclusively predicts all data as "up," resulting in no predictions for "down," which is not an ideal outcome. This outcome of zero predictions for the "down" category leads to true positive and false positive rates both being at 100%. Nevertheless, the model's accuracy remains above 50%, specifically at 58.65%.
+
+
+
+Also, using KNN with K = 1
+
+```{r,echo=FALSE,warning=FALSE}
+
+do.confusionknn =function(model,trues){
+   ## Confusion matrix
+  print("Confusion Matrix:")
+  con=table(model,trues)
+  print(con)
+  print("Model Accuracy (Percentage):")
+  print(round(((con[1,1]+con[2,2])/sum(con))*100,2))
+  print("True Positive Rate, TPR (percentage):")
+  print(round(con[2,2]/(con[2,2]+con[1,2])*100,2))
+  print("False Postive Rate, FPR (percentage):")
+  spec=con[1,1]/(con[1,1]+con[2,1])*100
+  print(round((100-spec),2))
+  
+}
+
+attach(Weekly)
+# head(Weekly)
+k_tdata = (Year < 2009)
+knn_train = as.matrix(Lag2[k_tdata])
+knn_test = as.matrix(Lag2[!k_tdata])
+train_class = Direction[k_tdata]
+
+library(class)
+fit_knn <- knn(knn_train, knn_test, cl=train_class, k = 1)
+do.confusionknn(fit_knn, test_data$Direction)
+
+```
+    
+ With K set to 1 in the KNN model, we observe an accuracy of 50.96%, indicating that half of the data was predicted incorrectly. The true positive rate stands at 52.46%, while the false positive rate is 51.16%. Notably, the test errors of the model are relatively lower compared to other models. Therefore, it can be concluded that KNN does not perform well when K equals 1.. 
+
+Upon reviewing the test error rates, it becomes evident that logistic regression and LDA exhibit the lowest error rates, with QDA and KNN following behind. Therefore, it can be concluded that Logistic and LDA delivered better performance in this context.
+
+Now, Experimenting with different combinations of predictors, including possible transformations and interactions, for each of the methods. And for the comparison of the models I have
+used confusion matrix.
+
+```{r,echo=FALSE,warning=FALSE}
+
+## trying with different combinations
+formula1=Direction~Lag1
+formula2=Direction~Lag2
+formula3=Direction~Lag1+Lag2
+formula4=Direction~Lag1+Lag2+Lag1*Lag2
+formula5=Direction~Lag2+Lag5
+formula6=Direction~Lag2+Lag5+Volume
+formula7=Direction~Lag2+Volume
+formula8=Direction~Lag2+I(Lag2^2)
+
+
+## All the LDA models 
+fit_lda1=lda(formula1,data=train)
+fit_lda2=lda(formula2,data=train)
+fit_lda3=lda(formula3,data=train)
+fit_lda4=lda(formula4,data=train)
+fit_lda5=lda(formula5,data=train)
+fit_lda6=lda(formula6,data=train)
+fit_lda7=lda(formula7,data=train)
+fit_lda8=lda(formula8,data=train)
+
+
+# Results of LDA models
+do.confusion(fit_lda1,test_data)
+do.confusion(fit_lda2,test_data)
+do.confusion(fit_lda3,test_data)
+do.confusion(fit_lda4,test_data)
+do.confusion(fit_lda5,test_data)
+do.confusion(fit_lda6,test_data)
+do.confusion(fit_lda7,test_data)
+do.confusion(fit_lda8,test_data)
+
+
+# All the QDA mdoels 
+fit_qda1=qda(formula1,data=train)
+fit_qda2=qda(formula2,data=train)
+fit_qda3=qda(formula3,data=train)
+fit_qda4=qda(formula4,data=train)
+fit_qda5=qda(formula5,data=train)
+fit_qda6=qda(formula6,data=train)
+fit_qda7=qda(formula7,data=train)
+fit_qda8=qda(formula8,data=train)
+
+# Since I used same function to compute LDA and QDA, using same function to compute QDA
+do.confusion(fit_qda1,test_data)
+do.confusion(fit_qda2,test_data)
+do.confusion(fit_qda3,test_data)
+do.confusion(fit_qda4,test_data)
+do.confusion(fit_qda5,test_data)
+do.confusion(fit_qda6,test_data)
+do.confusion(fit_qda7,test_data)
+do.confusion(fit_qda8,test_data)
+
+
+# Playing with the K values
+
+i=1
+kval=c(1,3,5,10,20,50,75,100)
+for(i in kval){
+  print("########################################")
+  print(paste0("K = ",i))
+  do.confusionknn(knn(knn_train, knn_test, cl=train_class, k = i), test_data$Direction)
+  print("########################################")
+}
+
+
+```
+    
+ In this context, I have generated 8 distinct model combinations and subsequently applied LDA and QDA. The confusion matrices and associated test errors are displayed above. In the case of LDA, the second model stands out with a promising accuracy of 62.5%. It's noteworthy that this model boasts a higher true positive rate and relatively lower false positive rate.
+
+Conversely, for the QDA models, the first two predict exclusively zeros for the "down" category, which is not desirable. Model 8, on the other hand, stands out with a high accuracy and elevated true positive rates.
+
+Regarding the KNN model, the choice of K is random, and for this specific model, it appears that a higher value of K yields a more accurate model with fewer test errors.
+    
+Performing LDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01.
+
+```{r,echo=FALSE,warning=FALSE}
+# Performing the a b and c again 
+library(ISLR)
+data(Auto)
+mpg01 <- rep(NA,dim(Auto)[1])
+med_ian <- median(Auto$mpg)
+mpg01 = ifelse(Auto$mpg<med_ian,0,1)
+myautodata = as.data.frame(cbind(Auto, mpg01))
+
+v <- c(2,3,4,5,6,7,8)
+layout(matrix(1:4,nrow = 2))
+# for (i in v){
+#    boxplot(myautodata[,i] ~ myautodata$mpg01,
+#           col = rainbow(7), 
+#           xlab="mpg01", 
+#           ylab= names(myautodata)[i], 
+#           main= paste0("Box plot for the mpg01 and ", names(myautodata)[i])
+#           )
+# }
+
+ 
+# newdf <- myautodata[,c(2,3,4,5,6,7,8,10)] # excluding mpg and names from my_data
+# plot(newdf,pch=16,cex=0.9,col=2)
+# 
+# # correlation of data
+# cor(newdf)
+
+# plot for horsepower and displacement
+# plot(horsepower ~ displacement,
+#      Auto,
+#      pch=16,
+#      cex=0.8,
+#      col=2, 
+#      main = "Horsepower vs Displacement")
+
+library(ggplot2)
+library(GGally)
+#pairs(newdf) #pairwise correlation
+# ggpairs(newdf,cardinality_threshold = 15)
+
+library(caTools)
+sample.split(myautodata,SplitRatio = 0.70)-> mysplit
+subset(myautodata,mysplit==T)-> data_train
+subset(myautodata,mysplit==F)-> data_test
+
+
+#########################################################################
+
+# My answer to question D
+
+auto_formula=mpg01 ~ cylinders + weight + displacement + horsepower 
+fitting_autolda=lda(auto_formula,data=data_train)
+
+
+test.err_lda=function(model,test){
+  trues=test$mpg01
+  preds=(predict(model,newdata=test,type="response"))$class
+  con=table(preds,trues)
+  print("Confusion Matrix:")
+  print(con)
+  print("Model Accuracy (Percentage):")
+  print(round((con[1,1]+con[2,2])/sum(con)*100,2))
+  print("True Positive Rate, TPR (percentage):")
+  print(round(con[2,2]/(con[2,2]+con[1,2])*100,2))
+  print("False Postive Rate, FPR (percentage):")
+  spec=con[1,1]/(con[1,1]+con[2,1])*100
+  print(round((100-spec),2))
+
+}
+
+test.err_lda(fitting_autolda, data_test)
+
+
+```
+     
+After investigating, it became evident that the variables "cylinders," "weight," "displacement," and "horsepower" were strongly associated with "mpg01." Consequently, I conducted LDA using these same variables, and the resulting confusion matrix revealed impressive outcomes. The model achieved an exceptional accuracy of 92.31%, indicating its high performance. Furthermore, the true positive rate was 91.8%, a notably positive result. Additionally, the desirable false positive rate, which is less than 10%, was met with a rate of 7.14%. Therefore, it can be concluded that LDA performed admirably for this model.
+
+I will now proceed to perform QDA on the training data to predict "mpg01."
+
+```{r,echo=FALSE,warning=FALSE}
+
+fitting_autoqda <- qda(auto_formula,data=data_train)
+test.err_lda(fitting_autoqda,data_test)
+
+```
+       
+ In this phase, I applied the same function to carry out QDA, and the results bear some resemblance to the LDA model. The QDA model exhibited an accuracy of 90.6%, which is generally commendable but still falls short of the LDA's performance. The true positive rate for the QDA model stood at 86.89%. However, it's worth noting that the QDA model displayed a lower false positive rate compared to the LDA model, and a lower false positive rate is typically preferred.
+
+Next, I will proceed to perform KNN on the training data, using various values of K, with a focus on predicting "mpg01" while utilizing only the variables that appeared to be most closely associated with it.
+
+
+```{r,echo=FALSE,warning=FALSE, fig.width = 5, fig.asp = .62, fig.align = "left"}
+
+library(class)
+variables <- which(names(data_train)%in%c("mpg01", "cylinders","weight","displacement", "horsepower"))
+
+set.seed(100)
+accuracies <- data.frame("k"=1:100, acc=NA)
+for(k in 1:100){
+  knn.pred <- knn(train=data_train[, variables], test=data_test[, variables], cl=data_train$mpg01, k=k)
+  
+  # test-error
+  accuracies$acc[k]= round(sum(knn.pred!=data_test$mpg01)/nrow(data_test)*100,2)
+}
+
+# accuracies
+# plot(accuracies)
+
+library(tidyverse)
+ggplot(data=accuracies, aes(k, acc)) + geom_line() +labs(title='Plot of K for KNN classifiers vs Accuracy of Model', x='No. K', y='Accuracy')
+
+max_accuracy <- accuracies[order(-accuracies$acc),]
+head(max_accuracy,3)
+
+```
+    
+ I opted to evaluate a range of K values from 1 to 100 and calculate the corresponding test errors. The objective is to identify the optimal K value that yields the highest accuracy. To visualize this process, I have generated a graph illustrating the relationship between K values and accuracy. Moreover, to provide a clear overview, I have also displayed the three highest accuracy values.
+
+
+
+                            Analysis of quality of wine
+
+
+  The dataset used in this project is a red wine quality dataset. This dataset consists of 12 variables and 1599 observations. The dataset consists of a collection of variables that may have affected the quality of the wine. I am aiming to find the variable(s) which contribute the most to the quality of the wine. We are also trying to predict a wine's quality. I have choosen this data because it is similar to the data we analysed. 
+
+
+## Exploring basic data statistics
+```{r,echo=FALSE,warning=FALSE}
+winedata <- 
+  read.csv("https://raw.githubusercontent.com/yamunadhungana/data/master/winequality-red.csv", header = TRUE)
+
+ str(winedata)
+ summary(winedata)
+```
+    
+  The quality of the wine which is rated from 1 to 10 initially. Here, I have changed the quality of wine that is less than or equal to 5 as low and mention in the data as Zero(0) and quality of wine greater than 5 as high and mentioned in data as one (1).  
+
+
+```{r,echo=FALSE,warning=FALSE} 
+# Changing the quality of the wine as high and low. The quality of wine scoring 4 or less is considered as the low quality wine and quality scoring 5 or above is considered as the high quality wine 
+
+qty <- rep(NA,dim(winedata)[1])
+qty = ifelse(winedata$quality<= 5,0,1)
+data_wine = as.data.frame(cbind(winedata, qty))
+fdata_wine <- data_wine[,-12]
+
+```
+
+    
+  Now, I want to find which variable is mostly correlated with the wine data. 
+
+
+```{r,echo=FALSE,warning=FALSE}
+
+# corelation of the data
+rr <- cor(fdata_wine)
+rr
+
+aa <- sort(rr[12,], decreasing = TRUE)
+abs(aa)>0.3
+ggpairs(fdata_wine)
+
+
+```
+    
+  I have decided to find those variables whose correlation coefficient is greater than 0.3. From the correlation looks like volatile acidity and alcohol seem mostly correlated with the quality of the wine. Alcohol is positively correlated with the positive correlation whereas, volatile acidity has the negative correlation coefficient. 
+
+
+## Splitting data 
+```{r,echo=FALSE,warning=FALSE}
+# SPlitting the data into training and testing
+
+library(caTools)
+sample.split(fdata_wine,SplitRatio = 0.60)-> splitdata
+subset(fdata_wine,splitdata==T)->tr.data
+subset(fdata_wine,splitdata==F)->tt.data
+
+```
+    
+  I have split the data into training and testing in the ratio of 60% to 40% with the library function caTools. I have decided to run the 3 models to check the impact of variables on the quality of the wine. First model is Logistic regression.
+
+
+
+## With Logistic Regression
+```{r,echo=FALSE,warning=FALSE}
+# Preform logistic regression to see whic of the variable is mostly associated with the quality of wine
+
+model1 <- glm(qty ~ volatile.acidity  + alcohol, data = tr.data, family = binomial)
+summary(model1)
+
+
+
+test.err=function(cutoff,model,tt){
+  preds=rep(0,dim(tt)[1])
+  probs=predict(model,newdata=tt, type="response")
+  for(i in 1:length(probs)){
+    if(probs[i]>=cutoff){
+      preds[i]=1
+    }
+  }
+  cm=table(preds, tt$qty)
+  message("Confusion Matrix:");print(cm)
+  ac=((cm[1,1]+cm[2,2])/sum(cm))*100
+  message("Overall test accuracy (percentage) : ", round(ac,2))
+  paste0("Test error (percantage): ",round((100-ac),2))
+  print("True Positive Rate, TPR (percentage):")
+  print(round(cm[2,2]/(cm[2,2]+cm[1,2])*100,2))
+  print("False Postive Rate, FPR (percentage):")
+  spec=cm[1,1]/(cm[1,1]+cm[2,1])*100
+  print(round((100-spec),2))
+  
+}
+
+test.err(0.5,model1, tt.data)
+
+```
+    
+  Since volatile acidity and alcohol are mostly associated with the quality of the data. I have fitted the logistic model with the same. From the logistic model, it appears that both the volatile acidity and alcohol are statistically significant. The estimated coefficient of volatile acidity is -3.02073 that means, when the other predictors in the model are constant, we would expect a mean decrease in log-odds by the unit increase in quality of the wine. Also, The estimated coefficient of alcohol is 1.10115 that means, when the other predictors in the model are constant, we would expect a mean increase in log-odds by the unit increase in quality of the wine. In the confusion matrix of the logistic regression, the test accuracy of the model is 72.11%, and the true the positive rate of the model is 70.9 and the False positive rate of the model is 26.52 which is good. 
+
+
+## With LDA
+```{r,echo=FALSE,warning=FALSE}
+# preforming LDA for the same question
+f_lda = lda(qty ~ volatile.acidity + alcohol, data = tr.data)
+
+
+do.confusion2 =function(model,data){
+  preds=(predict(model,newdata=data,type="response"))$class
+  vals=predict(model,newdata=data,type="response")
+  print("Confusion Matrix:")
+  con=table(preds,data$qty)
+  print(con)
+  print("Model Accuracy (Percentage):")
+  print(round(sum(preds==data$qty)/dim(data)[1]*100,2))
+  print("True Positive Rate, TPR (percentage):")
+  print(round(con[2,2]/(con[2,2]+con[1,2])*100,2))
+  print("False Postive Rate, FPR (percentage):")
+  spec=con[1,1]/(con[1,1]+con[2,1])*100
+  print(round((100-spec),2))
+  
+}
+
+
+paste0("Statistics for the LDA")
+do.confusion2(f_lda,tt.data)
+```
+    
+  The LDA model shows that the logistic regression and LDA have similar results. with LDA model accuracy, true positive and false positive rates are almost the same.
+    
+
+## With QDA
+```{r,echo=FALSE,warning=FALSE}
+# QDA for my data
+
+f_qda <- qda(qty ~ volatile.acidity + alcohol, data = tr.data)
+
+paste0("Statistics for the QDA")
+do.confusion2(f_qda,tt.data)
+
+
+```
+    
+   With the QDA model, The model accuracy is 71.06 which is a little less than the other models. The true positive rate is 65.54 which is also less than the other models however, the false positive rate is 22.68 which is 5% and 2% less than the other models and is considered better. 
+    
+    
+
+
+```{r,echo=FALSE,warning=FALSE}
+# Referance:
+
+# http://www.sthda.com/english/articles/36-classification-methods-essentials/146-discriminant-analysis-essentials-in-r/
+
+# https://stats.stackexchange.com/questions/110969/using-the-caret-package-is-it-possible-to-obtain-confusion-matrices-for-specific
+
+# https://www.edureka.co/blog/knn-algorithm-in-r/
+# https://www.datacamp.com/community/tutorials/machine-learning-in-r
+
+
+
+
+```
